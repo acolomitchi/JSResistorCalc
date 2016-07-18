@@ -18,7 +18,7 @@ to pick the resistors in the combination, hit the "Compute" button.
   take longer to scan the possible combination. The computation time
   is why "E12" series allows you to ask for combinations of max 4 resistors 
   (0.0001%=1e-6 relative precision), but the "E24" will allow you to
-  go only with max 3 (roughly 0.0005%=1e-6 relative precision)</p>
+  go only with max 3 (roughly 0.0005%=5e-6 relative precision)</p>
 * Mind you, the closeness of the combination value to your required one
   doesn't guarantee that you'll actually obtain that value using
   resistors with a tolerance of &plusmn;10% (E12) or &plusmn;5% (E24).
