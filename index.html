@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Resistor combination calculator</title>
+<script type="text/javascript"
+  src="rescomb.js"
+></script>
+<script type="text/javascript"
+  src="jquery-3.1.0.min.js"
+></script>
+
+<style>
+#resTable td, th { padding: 3pt 12pt .5em 12pt; line-height: 1.3em; }
+#resTable th { 
+  background: #839E99; 
+  color: #fff;
+  font-family :  Geneva, Arial, Helvetica, sans-serif; 
+  font-weight: bold; text-align: left; padding-right: .5em; vertical-align: top; }
+#resTable thead th { background: #2C5755; text-align: center; }
+#resTable td:nth-child(odd) { background: #DBE6DD; }
+#resTable th:nth-child(even) { background: #6E8D88; }
+  
+</style>
+
+<script type="text/javascript">
+  function Ctrl() {
+	  this.rcWorker=null;
+	  
+	  var updateData=function(data, done) {
+	    var numCombs=$("#numCombs");
+	    numCombs.html("#combs so far:"+data.combs);
+	    if(done) {
+	      $("#cancelSupport").empty();
+	      $("#cancelSupport").html("Done!");
+	    }
+      var resTBody=$("#resTable tbody");
+      resTBody.empty();
+	    if("undefined"!=typeof(data.vals) && $rc.util.isArray(data.vals)) {
+	      data.vals.forEach(
+	        function(e) {
+	          resTBody.append(
+	            "<tr><td>"+e.c+"</td>"+
+	            "<td>"+e.v+"</td>"+
+	            "<td>"+Math.round(e.eps*1000000)/10000+"</td>"+
+	            "<td>"+e.min+"</td>"+
+	            "<td>"+e.max+"</td>"+
+	            "</tr>"
+	          );
+	        }
+	      );
+	    }
+	  }
+	  
+	  
+	  this.compute=function() {
+			if(null!=this.rcWorker) {
+			  this.rcWorker.terminate();
+			  this.rcWorker=null;
+			}
+	    this.rcWorker=new Worker("worker.js");
+	    this.rcWorker.onmessage=function(e) {
+	      if(typeof(e.data)!="undefined") {
+	        var type=e.data.type;
+	        if("progress"==type || "done"==type) {
+	          updateData(e.data, "done"==type);
+	        }
+	      }
+	    }
+	    this.rcWorker.onerror=function(e) {
+	      // TODO handle it better
+	      alert(e.message);
+	    }
+	    var series=$("#rSeries").val();
+	    var tolerance=("E12"==series ? 0.1 : 0.05);
+	    this.rcWorker.postMessage({
+	      cmd:"start",
+	      numRes:$("#numComponents").val(),
+	      target: $("#resistorValue").val(),
+	      tolerance:tolerance,
+	      srcVals:series
+	    });
+	    $("#cancelSupport").html("<button id='cancelBtn'>Cancel</button>");
+	    var owner=this;
+	    $("#cancelSupport").find("#cancelBtn").click(
+	      function(e) {
+	        if(null!=owner.rcWorker) {
+	          owner.rcWorker.terminate();
+	          owner.rcWorker=null;
+	          setTimeout(
+	            function() {
+	          		$("#cancelSupport").html("Interrupted!");
+	            },850
+	          );
+	        }
+	      }
+	    );
+	  }
+	  
+	  $("#resistorValue").on("input",
+	    function(e) {
+	      var valStr=$("#resistorValue").val();
+	      var validVal=$rc.util.isNum(valStr) && (valStr-0)>0;
+	      $("#computeButton").prop('disabled', !validVal);
+	    }
+	  );
+	  $("#rSeries").on("change",
+	    function(e) {
+	      var v=$("#rSeries").val();
+	      if("E24"==v) {
+	        var opt4=$("#numComponents").find("#compCnt4");
+	        if(opt4.length) {
+	          if(4==$("#numComponents").val()) {
+	            $("#numComponents").val(3);
+	          }
+	          opt4.remove();
+	        }
+	      }
+	      else if("E12"==v) {
+	        var opt4=$("#numComponents").find("#compCnt4");
+	        if(0==opt4.length) {
+	          $("#numComponents").append('<option id="compCnt4" value="4">4</option>');
+	        }
+	      }
+	    }
+	  );
+	  $("#computeButton").prop('disabled', true);
+	  $("#resistorValue").val("");
+	  $("#computeButton").click(this.compute);
+  }
+  
+</script>
+
+</head>
+<body>
+  <h2>Resistor combination calculator</h2>
+  <p>Enter the resistor value you need in Ohms (sorry, no unit parsing/converter now), 
+  pick your maximum number of resistors in the combination,
+  choose the resistor series available to choose the resistors
+  in the combination, hit the "Compute" button.
+  </p>
+  <p><div id="input-area" style="diaply:inline-block;margin-right:10pt;margin-bottom:10pt">
+    <fieldset style="float:left">
+      <label for="resistorValue">Resistor value</label>
+      <input type="text" id="resistorValue"></input>
+      <br>
+      <label for="numComponents">Max # in combination</label>
+      <select id="numComponents">
+        <option value="1">1</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option id="compCnt4" value="4">4</option>
+      </select>
+      <label for="rSeries">Series</label>
+      <select id="rSeries">
+        <option value="E12">E12</option>
+        <option value="E24">E24</option>
+      </select>
+      <br><button id="computeButton">Compute</button>
+    </fieldset>
+  </div>
+  Every additional resistor in the combination will improve
+  the closeness of the result by two orders of magnitude, but it will
+  take longer to scan the possible combination. The computation time
+  is why "E12" series allows you to ask for combinations of max 4 resistors 
+  (0.0001%=1e-6 relative precision), but the "E24" will allow you to
+  go only with max 3 (roughly 0.0005%=1e-6 relative precision)</p>
+  <p>Mind you, the closeness of the combination value to your required one
+  doesn't guarantee that you'll actually obtain that value using
+  resistors with a tolerance of &plusmn;10% (E12) or &plusmn;5% (E24).
+  </p>
+  <div id="results" style="clear:both;display:table">
+    <div style="display:block; padding:8pt">
+	  	<div id="numCombs" style="display:inline;margin-right:9pt"></div><div id="cancelSupport" style="display:inline;padding-left:24pt"></div>
+	  </div>
+	  <div id="resList" style="display:table-row">
+	    <table id='resTable'>
+	      <thead>
+	        <tr>
+	        <th>Combination<br>(*:parallel,+:series)</th>
+	        <th>Value</th>
+	        <th>Rel.err<br>(% of target)</th>
+	        <th>Min.value<br>(% of target)</th>
+	        <th>Max.value<br>(% of target)</th>
+	        </tr>
+        </thead>
+        <tbody>
+        </tbody>
+	   </div>
+	</div>
+  <script type="text/javascript">
+	  var ctrl=null;
+	  $(window).ready(
+	    function() {
+	      ctrl=new Ctrl();
+	    }
+	  );
+  </script>
+</body>
+</html>
