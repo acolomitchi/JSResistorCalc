@@ -18,7 +18,8 @@
   font-family :  Geneva, Arial, Helvetica, sans-serif; 
   font-weight: bold; text-align: left; padding-right: .5em; vertical-align: top; }
 #resTable thead th { background: #2C5755; text-align: center; }
-#resTable td:nth-child(odd) { background: #DBE6DD; }
+#resTable td:nth-child(odd) { background: #2C5755; }
+#resTable td:nth-child(even) { background: #6E8D88; }
 #resTable th:nth-child(even) { background: #6E8D88; }
   
 </style>
@@ -139,7 +140,7 @@
   choose the resistor series available to choose the resistors
   in the combination, hit the "Compute" button.
   </p>
-  <p><div id="input-area" style="diaply:inline-block;margin-right:10pt;margin-bottom:10pt">
+  <p><div id="input-area" style="float:left;margin-right:10pt;margin-bottom:10pt">
     <fieldset style="float:left">
       <label for="resistorValue">Resistor value</label>
       <input type="text" id="resistorValue"></input>
@@ -186,6 +187,7 @@
         </thead>
         <tbody>
         </tbody>
+      </table>
 	   </div>
 	</div>
   <script type="text/javascript">

@@ -551,7 +551,7 @@ var $rc=(
       if(targetValue>0) {
         if(numComps==1) {
           // no need to search for a combination 
-          var ix=srcVals.binarySearch(targetValue);
+          var ix=srcVals.binarySearch(minV);
           if(ix<0) {
             ix=-ix-1;
           }
