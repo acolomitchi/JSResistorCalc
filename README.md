@@ -2,15 +2,17 @@
 Calculator for a combination of resistors having a value as close as possible to a specified one.
 
 Uses:
-- JavaScript and JQuery
+- JQuery for the UI controller
 - JavaScript workers to perform the computations on separated threads
 - Heavy use of functional programming, JavaScript style.
+
+An online accessible version is already available at:
+http://caffeineowl.com/electronics/calcs/rescomb/
 
 See [LICENCE.html](the license - CC-BY-*NC*).
 
 ## User guide
-Enter the resistor value you need in Ohms (sorry, no unit parsing/converter now), pick your maximum number of resistors in the combination, choose the resistor series available from which
-to pick the resistors in the combination, hit the "Compute" button.
+Enter the resistor value you need in Ohms (sorry, no unit parsing/converter now), pick your maximum number of resistors in the combination, choose the resistor series from which the script will choose the resistors in the combination, hit the "Compute" button.
 
 *Notes*:
 * Every additional resistor in the combination will improve
