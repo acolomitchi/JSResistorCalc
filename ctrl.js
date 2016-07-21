@@ -1,6 +1,7 @@
   function Ctrl() {
     this.rcWorker=null;
     this.valSet=$rc.E12Series; // the chosen value set
+    this.rSeriesVal="E12";
 
     var owner=this; // to have it as a variable in closures
     
@@ -40,7 +41,11 @@
         );
       }
     }
-    function showCustomSubsetDialog(subset, doneCallback) {
+    function showCustomSubsetDialog(
+      ctrlOwner,
+      subset, 
+      doneCallback, cancelCallback
+    ) {
       var d=$("#custom-choice-dialog");
       var nRows=subset.nRows;
       var nCols=subset.v.length/nRows;
@@ -90,7 +95,7 @@
           var cIx=$(this).val();
           for(var i=0;i<nRows;i++) {
             d.find("#"+valueId(i,cIx)).attr("checked",enAll);
-            // Darn, changing it programatically doesn't trigger an event. 
+            // Darn, changing it programmatically doesn't trigger an event. 
             // Well, adjust the corresponding value manually
             var vIx=valueIx(i,cIx);
             subset.v[vIx].s=enAll;
@@ -114,9 +119,13 @@
           maxHeight : 520,
           modal: true,
           autoOpen: false,
+          close : function(e,ui) {
+            // This will get called after the Ok or cancel buttons are pressed
+            // As such, one can expect the rSeriesVal to be already set up correctly
+            $("#rSeries").find("[value="+ctrlOwner.rSeriesVal+"]").prop("selected", true);
+          },
           buttons: {
             "OK": function() {
-              $( this ).dialog( "close" );
               $("custom-choice-dialog").empty();
               var valSet=[];
               subset.v.forEach(valObj=>{
@@ -125,10 +134,14 @@
                 }
               });
               doneCallback(valSet);
+              $( this ).dialog( "close" );
             },
             Cancel: function() {
+              $("#custom-choice-dialog").empty();
+              if(typeof(cancelCallback)=="function") {
+                cancelCallback();
+              }
               $( this ).dialog( "close" );
-              $("custom-choice-dialog").empty();
             }
           }
         }
@@ -149,13 +162,16 @@
       });
       var subset={nRows:12,v:resSet};
       var ctrlOwner=this;
-      showCustomSubsetDialog(subset, function(valSet) {
-        ctrlOwner.valSet=valSet;
-        ctrlOwner.adjustMaxNum();
-        window.sessionStorage['E12_subset']=valSet;
-      });
-      
-
+      showCustomSubsetDialog(
+        this,
+        subset, 
+        function(valSet) {
+          ctrlOwner.valSet=valSet;
+          ctrlOwner.rSeriesVal=$("#rSeries").val(); // save it
+          ctrlOwner.adjustMaxNum();
+          window.sessionStorage['E12_subset']=valSet;
+        }
+      );
     }
     
     this.showE24subset=function() {
@@ -172,11 +188,16 @@
       });
       var subset={nRows:24,v:resSet};
       var ctrlOwner=this;
-      showCustomSubsetDialog(subset, function(valSet) {
-        ctrlOwner.valSet=valSet;
-        ctrlOwner.adjustMaxNum();
-        window.sessionStorage['E24_subset']=valSet;
-      });
+      showCustomSubsetDialog(
+        this,
+        subset,
+        function(valSet) {
+          ctrlOwner.valSet=valSet;
+          ctrlOwner.rSeriesVal=$("#rSeries").val(); // save it
+          ctrlOwner.adjustMaxNum();
+          window.sessionStorage['E24_subset']=valSet;
+        }
+      );
     }
 
     this.compute=function() {
@@ -283,10 +304,12 @@
         var v=$("#rSeries").val();
         if("E24"==v) {
           owner.valSet=$rc.E24Series;
+          owner.rSeriesVal=v;
           owner.adjustMaxNum();
         }
         else if("E12"==v) {
           owner.valSet=$rc.E12Series;
+          owner.rSeriesVal=v;
           owner.adjustMaxNum();
         }
         else if("E12_subset"==v) {
