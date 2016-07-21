@@ -1,7 +1,8 @@
 importScripts('rescomb.js');
 
+var $rc=init$rc();
+
 var savedTolerance=null;
-var savedTarget=null;
 
 onmessage=function(e) {
   if(typeof(e.data)!="undefined") {
@@ -10,21 +11,29 @@ onmessage=function(e) {
       var numRes=e.data.numRes;
       var target=e.data.target;
       var tolerance=e.data.tolerance;
+      var combType=e.data.combType;
       var srcVals;
       if("E24"==e.data.srcVals) {
         srcVals=$rc.E24Series;
         numRes=Math.min(3, numRes);
       }
-      else /* if("E12"==e.data.srcVals) */ {
-        // TODO handle the case of provided custom value array
+      else if("E12"==e.data.srcVals) {
         srcVals=$rc.E12Series;
         numRes=Math.min(4, numRes);
       }
-      start(numRes, target, tolerance, srcVals);
+      else if($rc.util.isArray(e.data.srcVals)) {
+        srcVals=e.data.srcVals;
+      }
+      start(numRes, target, tolerance, srcVals, combType);
     }
   }
 }
 
+/* 
+ * the Serial/Parallel instances don't survive the transfer
+ * to the worker's master. Thus transferring the data
+ * as a map-object, with the combination specified as string
+ */
 function convert(vals) {
   var valObjs=[];
   vals.forEach(function(e) {
@@ -36,10 +45,9 @@ function convert(vals) {
     max=Math.round(max*100000)/100000;
     valObjs.push( {
         c:c,
-        v:(new $rc.Val(v)).toString()+"<br>("+v+")",
-        eps:e.eps,
-        min:min+"<br>("+Math.round((min-savedTarget)/savedTarget*1000000)/10000+"%)",
-        max:max+"<br>("+Math.round((max-savedTarget)/savedTarget*1000000)/10000+"%)"
+        v:v,
+        min:min,
+        max:max
       }
     );
   });
@@ -63,11 +71,10 @@ function done(numCombs, vals) {
   );
 }
 
-function start(numResistors, targetValue, tolerance, srcVals) {
+function start(numResistors, targetValue, tolerance, srcVals, combType) {
   savedTolerance=tolerance;
-  savedTarget=targetValue;
   $rc.makeValues(
     numResistors, targetValue, tolerance, srcVals, 
-    64, progress, done
+    64, combType, progress, done
   );
 }

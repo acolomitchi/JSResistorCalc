@@ -3,11 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <title>Resistor combination calculator</title>
+
+<link rel="stylesheet" href="jqui-1.12.0.md/jquery-ui.css">
+
 <script type="text/javascript"
   src="rescomb.js"
 ></script>
 <script type="text/javascript"
   src="jquery-3.1.0.min.js"
+></script>
+<script type="text/javascript"
+  src="jqui-1.12.0.md/jquery-ui.js"
 ></script>
 
 <style>
@@ -16,55 +22,229 @@
   background: #839E99; 
   color: #fff;
   font-family :  Geneva, Arial, Helvetica, sans-serif; 
-  font-weight: bold; text-align: left; padding-right: .5em; vertical-align: top; }
+  font-weight: bold; 
+  text-align: left; padding-right: .5em; vertical-align: top; 
+}
 #resTable thead th { background: #2C5755; text-align: center; }
 #resTable td:nth-child(odd) { background: #2C5755; }
 #resTable td:nth-child(even) { background: #6E8D88; }
 #resTable th:nth-child(even) { background: #6E8D88; }
-  
 </style>
 
 <script type="text/javascript">
+	var ctrl=null;
+	var $rc=init$rc();
+	
+	$(window).ready(
+	  function() {
+	    ctrl=new Ctrl();
+	  }
+	);
+
   function Ctrl() {
 	  this.rcWorker=null;
+	  this.valSet=$rc.E12Series; // the chosen value set
+
+    var owner=this; // to have it as a variable in closures
 	  
-	  var updateData=function(data, done) {
+	  this.updateData=function(data, done) {
 	    var numCombs=$("#numCombs");
-	    numCombs.html("#combs so far:"+data.combs);
+	    numCombs.html("# within "+Math.round(this.tolerance*1000)/10+"% of target: "+
+	      (null!=data ? data.combs : 0)
+	    );
 	    if(done) {
 	      $("#cancelSupport").empty();
 	      $("#cancelSupport").html("Done!");
 	    }
       var resTBody=$("#resTable tbody");
       resTBody.empty();
-	    if("undefined"!=typeof(data.vals) && $rc.util.isArray(data.vals)) {
-	      data.vals.forEach(
+      var ownerCtrl=this;
+	    if(null!==data && "undefined"!=typeof(data.vals) && $rc.util.isArray(data.vals)) {
+        data.vals.forEach(
 	        function(e) {
+	          var minTxt=
+	            e.min+"<br>("+Math.round((e.min-ownerCtrl.target)/ownerCtrl.target*1000000)/10000+"%)";
+	          ;
+	          var maxTxt=
+	            e.max+"<br>("+Math.round((e.max-ownerCtrl.target)/ownerCtrl.target*1000000)/10000+"%)";
+	          ;
+	          var valTxt=(new $rc.Val(e.v)).toString()+"<br>("+Math.round(e.v*1000)/1000+")";
+	          var eps=(e.v-ownerCtrl.target)/ownerCtrl.target;
+	          eps=Math.round(eps*1000000)/10000;
 	          resTBody.append(
 	            "<tr><td>"+e.c+"</td>"+
-	            "<td>"+e.v+"</td>"+
-	            "<td>"+Math.round(e.eps*1000000)/10000+"</td>"+
-	            "<td>"+e.min+"</td>"+
-	            "<td>"+e.max+"</td>"+
+	            "<td>"+valTxt+"</td>"+
+	            "<td>"+eps+"</td>"+
+	            "<td>"+minTxt+"</td>"+
+	            "<td>"+maxTxt+"</td>"+
 	            "</tr>"
 	          );
 	        }
 	      );
 	    }
 	  }
+	  function showCustomSubsetDialog(subset, doneCallback) {
+	    var d=$("#custom-choice-dialog");
+	    var nRows=subset.nRows;
+	    var nCols=subset.v.length/nRows;
+	    function valueIx(rIx, cIx) {
+	      return cIx*nRows+rIx;
+	    };
+	    function valueId(rIx, cIx) {
+	      return "cvId"+valueIx(rIx,cIx);
+	    };
+	    var str="<table style='border:none;width:100%'><tr>";
+	    for(var cIx=0;cIx<nCols;cIx++) {
+	      var has=false;
+	      for(var rIx=0; rIx<nRows && !has; rIx++) {
+	        var valObj=subset.v[valueIx(rIx, cIx)];
+	        has=valObj.s;
+	      }
+	      str+=
+	          "<td align='right'>&darr;&nbsp;<input type='checkbox' value='"+cIx
+	        + "' id='reset"+cIx+"'"
+	      ;
+	      if(has) {
+	        str+="checked='checked'";
+	      }
+	      str+="/></td>";
+	    }
+	    str+="</tr>";
+	    for(var rIx=0; rIx<nRows;rIx++) {
+	      str+="<tr>";
+	      for(var cIx=0; cIx<nCols;cIx++) {
+	        var vIx=valueIx(rIx,cIx);
+	        var vId=valueId(rIx, cIx);
+	        var valObj=subset.v[vIx];
+	        str+="<td align='right'><label for='"+vId+"'>"+valObj.v.toString()+"</label>";
+	        str+="<input type='checkbox' id='"+vId+"' value='"+vIx+"'";
+	        if(valObj.s) {
+	          str+=" checked='checked'";
+	        }
+	        str+="/></td>";
+	      }
+	      str+="</tr>";
+	    }
+	    str+="</table>";
+	    d.html(str);
+	    for(var cIx=0;cIx<nCols;cIx++) {
+	      d.find("#reset"+cIx).change(function(e) {
+	        var enAll=$(this).is(':checked');
+	        var cIx=$(this).val();
+	        for(var i=0;i<nRows;i++) {
+	          d.find("#"+valueId(i,cIx)).attr("checked",enAll);
+		        // Darn, changing it programatically doesn't trigger an event. 
+		        // Well, adjust the corresponding value manually
+		        var vIx=valueIx(i,cIx);
+		        subset.v[vIx].s=enAll;
+	        }
+	      });
+	      for(var rIx=0;rIx<nRows;rIx++) {
+	        var chBox=d.find("#"+valueId(rIx,cIx));
+	        chBox.change(function(e) {
+	          var sel=$(this).is(":checked");
+	          var vIx=$(this).val()-0; // make it number
+	          subset.v[vIx].s=sel;
+	        });
+	        // chBox.checkboxradio();
+	      }
+	    }
+	    d.dialog(
+	      {
+	        resizable: false,
+	        height: "auto",
+	        width: 460,
+	        maxHeight : 520,
+	        modal: true,
+	        autoOpen: false,
+	        buttons: {
+	          "OK": function() {
+	            $( this ).dialog( "close" );
+	            $("custom-choice-dialog").empty();
+	            var valSet=[];
+	            subset.v.forEach(valObj=>{
+	              if(valObj.s) {
+	                valSet.push(valObj.v.getValue());
+	              }
+	            });
+	            doneCallback(valSet);
+	          },
+	          Cancel: function() {
+	            $( this ).dialog( "close" );
+	            $("custom-choice-dialog").empty();
+	          }
+	        }
+		    }
+	    );
+	    d.dialog("open");
+	  }
+	  this.showE12subset=function() {
+	    var resSet=[];
+	    var saved=window.sessionStorage['E12_subset'];
+	    saved=
+        (typeof(saved)==="undefined" || null===saved) 
+	      ? [] 
+	      : saved.split(',')
+	    ;
+	    $rc.E12Series.forEach(function(e) {
+	      var ix=saved.binarySearch(e);
+	      resSet.push({v:new $rc.Val(e),s:(ix>=0)});
+	    });
+	    var subset={nRows:12,v:resSet};
+	    var ctrlOwner=this;
+	    showCustomSubsetDialog(subset, function(valSet) {
+	      ctrlOwner.valSet=valSet;
+	      ctrlOwner.adjustMaxNum();
+	      window.sessionStorage['E12_subset']=valSet;
+	    });
+      
+
+	  }
 	  
-	  
-	  this.compute=function() {
+	  this.showE24subset=function() {
+	    var resSet=[];
+	    var saved=window.sessionStorage['E24_subset'];
+	    saved=
+	        (typeof(saved)==="undefined" || null===saved) 
+	      ? [] 
+	      : saved.split(',')
+	    ;
+	    $rc.E24Series.forEach(function(e) {
+	      var ix=saved.binarySearch(e);
+	      resSet.push({v:new $rc.Val(e),s:(ix>=0)});
+	    });
+	    var subset={nRows:24,v:resSet};
+	    var ctrlOwner=this;
+	    showCustomSubsetDialog(subset, function(valSet) {
+	      ctrlOwner.valSet=valSet;
+	      ctrlOwner.adjustMaxNum();
+	      window.sessionStorage['E24_subset']=valSet;
+	    });
+	  }
+
+    this.compute=function() {
 			if(null!=this.rcWorker) {
 			  this.rcWorker.terminate();
 			  this.rcWorker=null;
 			}
+	    this.updateData(null, false);
+	    var target=$("#resistorValue").val();
+			if(false==$rc.util.isNum(target)) {
+			  alert("Expecting a number as the 'Desired value'");
+			  return;
+			}
+			this.target=target-0;
 	    this.rcWorker=new Worker("worker.js");
+	    var ownerCtrl=this;
 	    this.rcWorker.onmessage=function(e) {
 	      if(typeof(e.data)!="undefined") {
 	        var type=e.data.type;
 	        if("progress"==type || "done"==type) {
-	          updateData(e.data, "done"==type);
+	          ownerCtrl.updateData(e.data, "done"==type);
+	        }
+	        if("done"==type) {
+	          this.rcWorker.terminate();
+	          this.rcWorker=null;
 	        }
 	      }
 	    }
@@ -73,16 +253,11 @@
 	      alert(e.message);
 	    }
 	    var series=$("#rSeries").val();
-	    var tolerance=("E12"==series ? 0.1 : 0.05);
-	    this.rcWorker.postMessage({
-	      cmd:"start",
-	      numRes:$("#numComponents").val(),
-	      target: $("#resistorValue").val(),
-	      tolerance:tolerance,
-	      srcVals:series
-	    });
-	    $("#cancelSupport").html("<button id='cancelBtn'>Cancel</button>");
+	    this.tolerance=(series.startsWith("E24") ? 0.05 : 0.1);
+	    series=this.valSet;
+	    var combType=$('#combType').val();
 	    var owner=this;
+	    $("#cancelSupport").html("<button id='cancelBtn'>Cancel</button>");
 	    $("#cancelSupport").find("#cancelBtn").click(
 	      function(e) {
 	        if(null!=owner.rcWorker) {
@@ -96,7 +271,47 @@
 	        }
 	      }
 	    );
+	    this.rcWorker.postMessage({
+	      cmd:"start",
+	      numRes:$("#numComponents").val(),
+	      target: this.target,
+	      tolerance:this.tolerance,
+	      srcVals:series,
+	      combType:combType
+	    });
 	  }
+    
+    this.adjustMaxNum=function() {
+      if(typeof(this.valSet)!="undefined") {
+        var maxNum=6;
+        if(this.valSet.length<=24) {
+          maxNum=6;
+        }
+        else if(this.valSet.length<=36) {
+          maxNum=5;
+        }
+        else if(this.valSet.length<=72) {
+          maxNum=4;
+        }
+        else {
+          maxNum=3;
+        }
+        var numSelected=$("#numComponents").find(":selected").val();
+        if(numSelected>maxNum) {
+          numSelected=maxNum;
+        }
+        for(i=1; i<=maxNum; i++) {
+          var opt=$("#numComponents").find("[value="+i+"]");
+          opt.prop("disabled",false);
+          if(i==numSelected) {
+            opt.prop("selected", true);
+          }
+        }
+        for(i=maxNum+1; i<=6; i++) {
+          $("#numComponents").find("[value="+i+"]").prop("disabled",true); 
+        }
+      }
+    }
 	  
 	  $("#resistorValue").on("input",
 	    function(e) {
@@ -105,29 +320,37 @@
 	      $("#computeButton").prop('disabled', !validVal);
 	    }
 	  );
-	  $("#rSeries").on("change",
+	  var owner=this;
+	  $("#rSeries").find("option").on("click",
 	    function(e) {
 	      var v=$("#rSeries").val();
 	      if("E24"==v) {
-	        var opt4=$("#numComponents").find("#compCnt4");
-	        if(opt4.length) {
-	          if(4==$("#numComponents").val()) {
-	            $("#numComponents").val(3);
-	          }
-	          opt4.remove();
-	        }
+	        owner.valSet=$rc.E24Series;
+	        owner.adjustMaxNum();
 	      }
 	      else if("E12"==v) {
-	        var opt4=$("#numComponents").find("#compCnt4");
-	        if(0==opt4.length) {
-	          $("#numComponents").append('<option id="compCnt4" value="4">4</option>');
-	        }
+	        owner.valSet=$rc.E12Series;
+	        owner.adjustMaxNum();
+	      }
+	      else if("E12_subset"==v) {
+	        owner.showE12subset();
+	      }
+	      else if("E24_subset"==v) {
+	        owner.showE24subset();
 	      }
 	    }
 	  );
 	  $("#computeButton").prop('disabled', true);
 	  $("#resistorValue").val("");
-	  $("#computeButton").click(this.compute);
+	  $("#numComponents").find("[value=3]").prop("selected", true);
+	  $("#rSeries").find("[value=E12]").prop("selected", true);
+	  this.adjustMaxNum();
+	  var owner=this;
+	  $("#computeButton").click(
+	    function(){
+	      owner.compute();
+	    }
+	  );
   }
   
 </script>
@@ -137,30 +360,43 @@
   <h2>Resistor combination calculator</h2>
   <p>Enter the resistor value you need in Ohms (sorry, no unit parsing/converter now), 
   pick your maximum number of resistors in the combination,
-  choose the resistor series available to choose the resistors
-  in the combination, hit the "Compute" button.
+  choose the resistor values available to make combination,
+  adjust the combination type, hit the "Compute" button.
   </p>
-  <p><div id="input-area" style="float:left;margin-right:10pt;margin-bottom:10pt">
+  <div id="input-area" style="float:left;margin-right:10pt;margin-bottom:10pt">
     <fieldset style="float:left">
-      <label for="resistorValue">Resistor value</label>
+      <label for="resistorValue">Desired value</label>
       <input type="text" id="resistorValue"></input>
+      <br>
+      <label for="rSeries">Resistor set</label>
+      <select id="rSeries">
+        <option value="E12">E12</option>
+        <option value="E24">E24</option>
+        <option value="E12_subset">E12 custom subset</option>
+        <option value='E24_subset'>E24 custom subset</option>
+      </select>
       <br>
       <label for="numComponents">Max # in combination</label>
       <select id="numComponents">
         <option value="1">1</option>
         <option value="2">2</option>
         <option value="3">3</option>
-        <option id="compCnt4" value="4">4</option>
+        <option value="4">4</option>
+        <option value="5">5</option>
+        <option value="6">6</option>
       </select>
-      <label for="rSeries">Series</label>
-      <select id="rSeries">
-        <option value="E12">E12</option>
-        <option value="E24">E24</option>
+      <br>
+      <label for="combType">Combination type</label>
+      <select id="combType" style='margin-right:20pt'>
+        <option value="B">Series and parallel</option>
+        <option value='P'>Parallel only</option>
+        <option value='S'>Series only</option>
       </select>
-      <br><button id="computeButton">Compute</button>
+      <br>
+      <button id="computeButton">Compute</button>
     </fieldset>
   </div>
-  Every additional resistor in the combination will improve
+  <p>Every additional resistor in the combination will improve
   the closeness of the result by two orders of magnitude, but it will
   take longer to scan the possible combination. The computation time
   is why "E12" series allows you to ask for combinations of max 4 resistors 
@@ -190,13 +426,7 @@
       </table>
 	   </div>
 	</div>
-  <script type="text/javascript">
-	  var ctrl=null;
-	  $(window).ready(
-	    function() {
-	      ctrl=new Ctrl();
-	    }
-	  );
-  </script>
+  <!-- jqueryui support -->
+  <div id="custom-choice-dialog" style="display:block;overflow:scroll" title="Pick the available resistor values"></div>
 </body>
 </html>
