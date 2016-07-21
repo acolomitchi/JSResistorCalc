@@ -140,7 +140,7 @@
       var saved=window.sessionStorage['E12_subset'];
       saved=
         (typeof(saved)==="undefined" || null===saved) 
-        ? [] 
+        ? $rc.E12Series 
         : saved.split(',')
       ;
       $rc.E12Series.forEach(function(e) {
@@ -163,7 +163,7 @@
       var saved=window.sessionStorage['E24_subset'];
       saved=
           (typeof(saved)==="undefined" || null===saved) 
-        ? [] 
+        ? $rc.E24Series 
         : saved.split(',')
       ;
       $rc.E24Series.forEach(function(e) {
