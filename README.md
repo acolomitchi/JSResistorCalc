@@ -24,7 +24,7 @@ pick the maximum number of resistors in the combination,
   <li> Every additional resistor in the combination will improve
   the quality of the resulted values by roughly two orders of magnitude. 
   However asking for combinations made of a higher number of resistors
-  will cause longer searches for combinations (a supra-exponential grow).
+  will cause longer searches for combinations (an exponential growth).
   The calculator will restrict the maximum number of resistors in combination
   based on the number of the available/input resistor values.<ul>
     <li>For input sets up to 24 values, you can request combinations up to 6 resistors.</li>
